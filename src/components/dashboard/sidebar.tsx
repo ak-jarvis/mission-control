@@ -51,11 +51,11 @@ export function Sidebar() {
       <div className="p-6 border-b border-border">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">MC</span>
+            <span className="text-lg">🤖</span>
           </div>
           <div>
-            <h2 className="font-bold text-foreground">Mission Control</h2>
-            <p className="text-xs text-muted-foreground">ClawdBot Orchestration</p>
+            <h2 className="font-bold text-foreground">Jarvis HQ</h2>
+            <p className="text-xs text-muted-foreground">Agent Orchestration</p>
           </div>
         </div>
       </div>
