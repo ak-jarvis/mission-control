@@ -872,6 +872,49 @@ const migrations: Migration[] = [
       db.exec(`CREATE INDEX IF NOT EXISTS idx_sla_events_task_id ON sla_events(task_id)`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_sla_events_type ON sla_events(event_type)`)
     }
+  },
+  {
+    id: '031_project_ownership',
+    up: (db) => {
+      const hasTbl = db.prepare(`SELECT 1 as ok FROM sqlite_master WHERE type='table' AND name='projects'`).get() as { ok?: number } | undefined
+      if (!hasTbl?.ok) return
+
+      const cols = db.prepare(`PRAGMA table_info(projects)`).all() as Array<{ name: string }>
+      const hasCol = (name: string) => cols.some(c => c.name === name)
+
+      if (!hasCol('owner_agent')) db.exec(`ALTER TABLE projects ADD COLUMN owner_agent TEXT`)
+      if (!hasCol('owner_display')) db.exec(`ALTER TABLE projects ADD COLUMN owner_display TEXT`)
+      if (!hasCol('default_priority_tier')) db.exec(`ALTER TABLE projects ADD COLUMN default_priority_tier TEXT DEFAULT 'P2'`)
+      if (!hasCol('auto_assign')) db.exec(`ALTER TABLE projects ADD COLUMN auto_assign INTEGER NOT NULL DEFAULT 1`)
+    }
+  },
+  {
+    id: '032_seed_projects',
+    up: (db) => {
+      const hasTbl = db.prepare(`SELECT 1 as ok FROM sqlite_master WHERE type='table' AND name='projects'`).get() as { ok?: number } | undefined
+      if (!hasTbl?.ok) return
+
+      const insert = db.prepare(`
+        INSERT OR IGNORE INTO projects (workspace_id, name, slug, ticket_prefix, owner_agent, owner_display, description, status)
+        VALUES (1, ?, ?, ?, ?, ?, ?, 'active')
+      `)
+
+      const projects = [
+        ['Home Away', 'home-away', 'HA', 'bnb-hero', 'Zayd', 'STR rental arbitrage in Dubai'],
+        ['Masaya', 'masaya', 'MSY', 'jarvis-dev', 'Dev', 'AI property management SaaS'],
+        ['SukukLabs', 'sukuklabs', 'SKL', 'sukuqi', 'SukuQi', 'Islamic fintech tokenization'],
+        ['Portfolio', 'portfolio', 'PF', 'friday', 'Friday', 'Equity research & financial models'],
+        ['Personal', 'personal', 'LIFE', 'jarvis-life', 'Mira', 'Health, family, relocation'],
+        ['Infrastructure', 'infra', 'INFRA', 'jarvis-dev', 'Dev', 'OpenClaw, myJarvis, Mission Control'],
+        ['Intel', 'intel', 'INTL', 'hostai-scout', 'Scout', 'Market research & competitor analysis'],
+      ]
+
+      db.transaction(() => {
+        for (const [name, slug, prefix, owner, display, desc] of projects) {
+          insert.run(name, slug, prefix, owner, display, desc)
+        }
+      })()
+    }
   }
 ]
 

@@ -196,12 +196,24 @@ export async function POST(request: NextRequest) {
       tags = [],
       metadata = {}
     } = body;
-    const normalizedStatus = normalizeTaskCreateStatus(status, assigned_to)
+    // Auto-assign: if no assigned_to specified and project has auto_assign enabled
+    let effectiveAssignedTo = assigned_to
+    if (!effectiveAssignedTo && project_id) {
+      const project = db.prepare(`
+        SELECT owner_agent, auto_assign FROM projects
+        WHERE id = ? AND workspace_id = ?
+      `).get(project_id, workspaceId) as { owner_agent?: string; auto_assign?: number } | undefined
+      if (project?.auto_assign && project?.owner_agent) {
+        effectiveAssignedTo = project.owner_agent
+      }
+    }
+
+    const normalizedStatus = normalizeTaskCreateStatus(status, effectiveAssignedTo)
 
     // Governance: mandatory fields if task is being assigned (leaving inbox)
     if (normalizedStatus !== 'inbox') {
       const fieldCheck = validateMandatoryFieldsForAssignment({
-        assigned_to,
+        assigned_to: effectiveAssignedTo,
         due_date,
         context_note,
         definition_of_done,
@@ -216,11 +228,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Governance: WIP limit check for assignee
-    if (assigned_to) {
+    if (effectiveAssignedTo) {
       const activeCount = (db.prepare(`
         SELECT COUNT(*) as c FROM tasks
         WHERE assigned_to = ? AND workspace_id = ? AND status IN ('assigned', 'in_progress', 'review', 'quality_review')
-      `).get(assigned_to, workspaceId) as { c: number }).c
+      `).get(effectiveAssignedTo, workspaceId) as { c: number }).c
       const wipCheck = checkWipLimit(activeCount)
       if (!wipCheck.allowed) {
         return NextResponse.json({ error: wipCheck.reason }, { status: 409 })
@@ -282,7 +294,7 @@ export async function POST(request: NextRequest) {
         priority,
         resolvedProjectId,
         row.ticket_counter,
-        assigned_to,
+        effectiveAssignedTo,
         created_by,
         now,
         now,
@@ -320,7 +332,7 @@ export async function POST(request: NextRequest) {
       title,
       status: normalizedStatus,
       priority,
-      assigned_to,
+      assigned_to: effectiveAssignedTo,
       ...(outcome ? { outcome } : {})
     }, workspaceId);
 
@@ -343,10 +355,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Create notification if assigned
-    if (assigned_to) {
-      db_helpers.ensureTaskSubscription(taskId, assigned_to, workspaceId)
+    if (effectiveAssignedTo) {
+      db_helpers.ensureTaskSubscription(taskId, effectiveAssignedTo, workspaceId)
       db_helpers.createNotification(
-        assigned_to,
+        effectiveAssignedTo,
         'assignment',
         'Task Assigned',
         `You have been assigned to task: ${title}`,

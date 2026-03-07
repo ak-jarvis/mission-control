@@ -77,6 +77,10 @@ interface Project {
   slug: string
   ticket_prefix: string
   status: 'active' | 'archived'
+  owner_agent?: string
+  owner_display?: string
+  default_priority_tier?: string
+  auto_assign?: number
 }
 
 interface MentionOption {
@@ -544,7 +548,7 @@ export function TaskBoardPanel() {
             <option value="all">All Projects</option>
             {projects.map((project) => (
               <option key={project.id} value={String(project.id)}>
-                {project.name} ({project.ticket_prefix})
+                {project.name} ({project.ticket_prefix}){project.owner_display ? ` — ${project.owner_display}` : ''}
               </option>
             ))}
           </select>
@@ -812,9 +816,9 @@ function TaskDetailModal({
 }) {
   const { currentUser } = useMissionControl()
   const commentAuthor = currentUser?.username || 'system'
-  const resolvedProjectName =
-    task.project_name ||
-    projects.find((project) => project.id === task.project_id)?.name
+  const resolvedProject = projects.find((project) => project.id === task.project_id)
+  const resolvedProjectName = task.project_name || resolvedProject?.name
+  const resolvedProjectOwner = resolvedProject?.owner_display
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [commentText, setCommentText] = useState('')
@@ -1007,7 +1011,7 @@ function TaskDetailModal({
               {resolvedProjectName && (
                 <div>
                   <span className="text-muted-foreground">Project:</span>
-                  <span className="text-foreground ml-2">{resolvedProjectName}</span>
+                  <span className="text-foreground ml-2">{resolvedProjectName}{resolvedProjectOwner ? ` (${resolvedProjectOwner})` : ''}</span>
                 </div>
               )}
               <div>
@@ -1848,7 +1852,7 @@ function ProjectManagerModal({
                 <div key={project.id} className="flex items-center justify-between border border-border rounded-md p-3">
                   <div>
                     <div className="text-sm font-medium text-foreground">{project.name}</div>
-                    <div className="text-xs text-muted-foreground">{project.ticket_prefix} · {project.slug} · {project.status}</div>
+                    <div className="text-xs text-muted-foreground">{project.ticket_prefix} · {project.slug} · {project.status}{project.owner_display ? ` · Owner: ${project.owner_display}` : ''}</div>
                   </div>
                   <div className="flex gap-2">
                     {project.slug !== 'general' && (
