@@ -11,6 +11,7 @@ import {
   TasksTab,
   ActivityTab,
   ConfigTab,
+  ChannelsTab,
   CreateAgentModal
 } from './agent-detail-tabs'
 
@@ -633,7 +634,8 @@ function AgentDetailModalPhase3({
     { id: 'memory', label: 'Memory', icon: 'M' },
     { id: 'tasks', label: 'Tasks', icon: 'T' },
     { id: 'config', label: 'Config', icon: 'C' },
-    { id: 'activity', label: 'Activity', icon: 'A' }
+    { id: 'activity', label: 'Activity', icon: 'A' },
+    { id: 'channels', label: 'Channels', icon: 'Ch' }
   ]
 
   return (
@@ -745,6 +747,10 @@ function AgentDetailModalPhase3({
 
           {activeTab === 'activity' && (
             <ActivityTab agent={agent} />
+          )}
+
+          {activeTab === 'channels' && (
+            <ChannelsTab agent={agent} />
           )}
         </div>
       </div>

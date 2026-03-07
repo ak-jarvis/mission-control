@@ -805,6 +805,105 @@ export function ActivityTab({ agent }: { agent: Agent }) {
   )
 }
 
+// Channels Tab Component
+const platformBadgeColors: Record<string, string> = {
+  slack: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  discord: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+  telegram: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  whatsapp: 'bg-green-500/20 text-green-300 border-green-500/30',
+}
+
+interface ChannelBinding {
+  id: number
+  agent_name: string
+  platform: string
+  channel_kind: string
+  channel_id: string
+  channel_name: string | null
+  account_id: string | null
+  is_active: number
+  synced_at: number
+}
+
+export function ChannelsTab({ agent }: { agent: Agent }) {
+  const [bindings, setBindings] = useState<ChannelBinding[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchBindings = async () => {
+      try {
+        const response = await fetch(`/api/channels?agent=${agent.name}`)
+        if (response.ok) {
+          const data = await response.json()
+          setBindings(data.bindings || [])
+        }
+      } catch (err) {
+        log.error('Failed to fetch channel bindings', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchBindings()
+  }, [agent.name])
+
+  if (loading) {
+    return (
+      <div className="p-6 text-center text-muted-foreground">
+        Loading channels...
+      </div>
+    )
+  }
+
+  if (bindings.length === 0) {
+    return (
+      <div className="p-6 text-center text-muted-foreground">
+        No channel bindings configured for this agent.
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-4 space-y-2">
+      <div className="text-sm text-muted-foreground mb-3">
+        {bindings.length} channel{bindings.length !== 1 ? 's' : ''} bound
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border/50 text-left text-muted-foreground">
+              <th className="pb-2 pr-4 font-medium">Platform</th>
+              <th className="pb-2 pr-4 font-medium">Kind</th>
+              <th className="pb-2 pr-4 font-medium">Channel ID</th>
+              <th className="pb-2 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bindings.map((binding) => (
+              <tr key={binding.id} className="border-b border-border/30">
+                <td className="py-2.5 pr-4">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${platformBadgeColors[binding.platform] || 'bg-gray-500/20 text-gray-300 border-gray-500/30'}`}>
+                    {binding.platform}
+                  </span>
+                </td>
+                <td className="py-2.5 pr-4 text-foreground">{binding.channel_kind}</td>
+                <td className="py-2.5 pr-4 font-mono text-xs text-muted-foreground">
+                  {binding.channel_name || binding.channel_id}
+                </td>
+                <td className="py-2.5">
+                  <span className={`inline-flex items-center gap-1.5 text-xs ${binding.is_active ? 'text-green-400' : 'text-gray-500'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${binding.is_active ? 'bg-green-400' : 'bg-gray-500'}`} />
+                    {binding.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ===== NEW COMPONENTS: CreateAgentModal (template wizard) + ConfigTab =====
 // These replace the old CreateAgentModal and add the Config tab
 

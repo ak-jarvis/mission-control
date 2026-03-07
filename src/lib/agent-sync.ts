@@ -217,6 +217,103 @@ function mapAgentToMC(agent: OpenClawAgent): {
   return { name, role, config: configData, soul_content }
 }
 
+/** Read and parse openclaw.json bindings list */
+async function readOpenClawBindings(): Promise<any[]> {
+  const configPath = getConfigPath()
+  if (!configPath) return []
+
+  const { readFile } = require('fs/promises')
+  const raw = await readFile(configPath, 'utf-8')
+  const parsed = JSON.parse(raw)
+  return parsed?.bindings || []
+}
+
+export interface BindingSyncResult {
+  synced: number
+  created: number
+  updated: number
+  deactivated: number
+  error?: string
+}
+
+/** Sync channel bindings from openclaw.json into the MC database */
+export async function syncBindingsFromConfig(): Promise<BindingSyncResult> {
+  let bindings: any[]
+  try {
+    bindings = await readOpenClawBindings()
+  } catch (err: any) {
+    return { synced: 0, created: 0, updated: 0, deactivated: 0, error: err.message }
+  }
+
+  if (bindings.length === 0) {
+    return { synced: 0, created: 0, updated: 0, deactivated: 0 }
+  }
+
+  const db = getDatabase()
+  const now = Math.floor(Date.now() / 1000)
+  let created = 0
+  let updated = 0
+  let deactivated = 0
+
+  const upsertBinding = db.prepare(`
+    INSERT INTO channel_bindings (workspace_id, agent_name, platform, channel_kind, channel_id, account_id, is_active, synced_at)
+    VALUES (1, ?, ?, ?, ?, ?, 1, ?)
+    ON CONFLICT(workspace_id, agent_name, platform, channel_id)
+    DO UPDATE SET channel_kind = excluded.channel_kind, account_id = excluded.account_id, is_active = 1, synced_at = excluded.synced_at
+  `)
+
+  const findExisting = db.prepare(`
+    SELECT id FROM channel_bindings
+    WHERE workspace_id = 1 AND agent_name = ? AND platform = ? AND channel_id = ?
+  `)
+
+  const activeKeys = new Set<string>()
+
+  db.transaction(() => {
+    for (const binding of bindings) {
+      const agentName = binding.agentId
+      const platform = binding.match?.channel
+      const channelKind = binding.match?.peer?.kind
+      const channelId = binding.match?.peer?.id
+      const accountId = binding.match?.peer?.account || null
+
+      if (!agentName || !platform || !channelKind || !channelId) continue
+
+      const existing = findExisting.get(agentName, platform, channelId)
+      upsertBinding.run(agentName, platform, channelKind, channelId, accountId, now)
+
+      if (existing) {
+        updated++
+      } else {
+        created++
+      }
+
+      activeKeys.add(`${agentName}|${platform}|${channelId}`)
+    }
+
+    // Deactivate bindings not in current config
+    const allBindings = db.prepare(`
+      SELECT id, agent_name, platform, channel_id FROM channel_bindings
+      WHERE workspace_id = 1 AND is_active = 1
+    `).all() as Array<{ id: number; agent_name: string; platform: string; channel_id: string }>
+
+    const toDeactivate = allBindings.filter(
+      b => !activeKeys.has(`${b.agent_name}|${b.platform}|${b.channel_id}`)
+    )
+
+    if (toDeactivate.length > 0) {
+      const deactivateStmt = db.prepare(`UPDATE channel_bindings SET is_active = 0, synced_at = ? WHERE id = ?`)
+      for (const b of toDeactivate) {
+        deactivateStmt.run(now, b.id)
+        deactivated++
+      }
+    }
+  })()
+
+  logger.info({ synced: bindings.length, created, updated, deactivated }, 'Bindings sync complete')
+  return { synced: bindings.length, created, updated, deactivated }
+}
+
 /** Sync agents from openclaw.json into the MC database */
 export async function syncAgentsFromConfig(actor: string = 'system'): Promise<SyncResult> {
   let agents: OpenClawAgent[]
@@ -290,6 +387,14 @@ export async function syncAgentsFromConfig(actor: string = 'system'): Promise<Sy
   }
 
   logger.info({ synced, created, updated }, 'Agent sync complete')
+
+  // Also sync channel bindings from config
+  try {
+    await syncBindingsFromConfig()
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'Bindings sync failed (non-fatal)')
+  }
+
   return { synced, created, updated, agents: results }
 }
 
