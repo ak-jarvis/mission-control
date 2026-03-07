@@ -39,6 +39,7 @@ const navGroups: NavGroup[] = [
       { id: 'tokens', label: 'Tokens', icon: <TokensIcon />, priority: false },
       { id: 'agent-costs', label: 'Agent Costs', icon: <AgentCostsIcon />, priority: false },
       { id: 'memory', label: 'Memory', icon: <MemoryIcon />, priority: false },
+      { id: 'pixel-office', label: 'Pixel Office', icon: <PixelOfficeIcon />, priority: false },
     ],
   },
   {
@@ -645,6 +646,17 @@ function DocumentsIcon() {
       <path d="M3 1.5h7l3 3V14a1 1 0 01-1 1H3a1 1 0 01-1-1V2.5a1 1 0 011-1z" />
       <path d="M10 1.5V5h3" />
       <path d="M5 8h6M5 10.5h6M5 13h4" />
+    </svg>
+  )
+}
+
+function PixelOfficeIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="4" width="12" height="10" rx="1" />
+      <path d="M5 4V2h6v2" />
+      <path d="M2 8h12" />
+      <rect x="6" y="6" width="4" height="4" rx="0.5" />
     </svg>
   )
 }
