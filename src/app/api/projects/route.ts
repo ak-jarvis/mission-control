@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
     const includeArchived = new URL(request.url).searchParams.get('includeArchived') === '1'
 
     const projects = db.prepare(`
-      SELECT id, workspace_id, name, slug, description, ticket_prefix, ticket_counter, status, created_at, updated_at
+      SELECT id, workspace_id, name, slug, description, ticket_prefix, ticket_counter, status,
+             owner_agent, owner_display, default_priority_tier, auto_assign,
+             created_at, updated_at
       FROM projects
       WHERE workspace_id = ?
         ${includeArchived ? '' : "AND status = 'active'"}
@@ -58,6 +60,10 @@ export async function POST(request: NextRequest) {
     const description = typeof body?.description === 'string' ? body.description.trim() : ''
     const prefixInput = String(body?.ticket_prefix || body?.ticketPrefix || '').trim()
     const slugInput = String(body?.slug || '').trim()
+    const ownerAgent = typeof body?.owner_agent === 'string' ? body.owner_agent.trim() || null : null
+    const ownerDisplay = typeof body?.owner_display === 'string' ? body.owner_display.trim() || null : null
+    const defaultPriorityTier = typeof body?.default_priority_tier === 'string' ? body.default_priority_tier.trim() || 'P2' : 'P2'
+    const autoAssign = body?.auto_assign === false ? 0 : 1
 
     if (!name) return NextResponse.json({ error: 'Project name is required' }, { status: 400 })
 
@@ -76,12 +82,14 @@ export async function POST(request: NextRequest) {
     }
 
     const result = db.prepare(`
-      INSERT INTO projects (workspace_id, name, slug, description, ticket_prefix, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, 'active', unixepoch(), unixepoch())
-    `).run(workspaceId, name, slug, description || null, ticketPrefix)
+      INSERT INTO projects (workspace_id, name, slug, description, ticket_prefix, owner_agent, owner_display, default_priority_tier, auto_assign, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', unixepoch(), unixepoch())
+    `).run(workspaceId, name, slug, description || null, ticketPrefix, ownerAgent, ownerDisplay, defaultPriorityTier, autoAssign)
 
     const project = db.prepare(`
-      SELECT id, workspace_id, name, slug, description, ticket_prefix, ticket_counter, status, created_at, updated_at
+      SELECT id, workspace_id, name, slug, description, ticket_prefix, ticket_counter, status,
+             owner_agent, owner_display, default_priority_tier, auto_assign,
+             created_at, updated_at
       FROM projects
       WHERE id = ?
     `).get(Number(result.lastInsertRowid))
