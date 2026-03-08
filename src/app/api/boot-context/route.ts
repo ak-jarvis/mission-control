@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { getDatabase } from '@/lib/db'
 import { logger } from '@/lib/logger'
+import { getCrmStats } from '@/lib/crm'
 
 /**
  * GET /api/boot-context?agent=jarvis-dev
@@ -11,11 +13,21 @@ import { logger } from '@/lib/logger'
 
 function authenticateApiKey(request: NextRequest): boolean {
   const apiKey = process.env.MC_API_KEY
-  if (!apiKey) return true // No key configured = allow all (dev mode)
+  if (!apiKey || apiKey.trim().length === 0) {
+    // No API key configured — reject all requests
+    return false
+  }
   const authHeader = request.headers.get('authorization')
   if (!authHeader) return false
   const token = authHeader.replace(/^Bearer\s+/i, '')
-  return token === apiKey
+  try {
+    const tokenBuf = Buffer.from(token)
+    const keyBuf = Buffer.from(apiKey)
+    if (tokenBuf.length !== keyBuf.length) return false
+    return timingSafeEqual(tokenBuf, keyBuf)
+  } catch {
+    return false
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -33,7 +45,7 @@ export async function GET(request: NextRequest) {
     let agent: any = null
     try {
       agent = db.prepare(`
-        SELECT id, name, role, status, soul_content, config, last_seen
+        SELECT id, name, role, status, config, last_seen
         FROM agents WHERE workspace_id = ? ${agentName ? 'AND name = ?' : ''}
         LIMIT 1
       `).get(...(agentName ? [workspaceId, agentName] : [workspaceId]))
@@ -46,8 +58,8 @@ export async function GET(request: NextRequest) {
     let channels: any[] = []
     try {
       const channelQuery = agentName
-        ? `SELECT * FROM channel_bindings WHERE workspace_id = ? AND agent_name = ? AND is_active = 1`
-        : `SELECT * FROM channel_bindings WHERE workspace_id = ? AND is_active = 1`
+        ? `SELECT platform, channel_kind, channel_id, channel_name, is_active FROM channel_bindings WHERE workspace_id = ? AND agent_name = ? AND is_active = 1`
+        : `SELECT platform, channel_kind, channel_id, channel_name, is_active FROM channel_bindings WHERE workspace_id = ? AND is_active = 1`
       channels = db.prepare(channelQuery).all(...(agentName ? [workspaceId, agentName] : [workspaceId]))
     } catch { /* table may not exist yet */ }
 
@@ -110,7 +122,6 @@ export async function GET(request: NextRequest) {
     // CRM summary (from Phase 4)
     let crmSummary = { hot_contacts: 0, warm_contacts: 0, total_contacts: 0 }
     try {
-      const { getCrmStats } = await import('@/lib/crm')
       const stats = getCrmStats()
       if (stats) {
         crmSummary = {
