@@ -272,19 +272,20 @@ export function computeProgressUpdates(
       if (!task.first_artifact_at && progress.artifacts?.length) fields.first_artifact_at = now
       break
     case 'blocked':
+      // Becoming blocked is not a retry — just record the block reason
       fields.blocked_type = progress.blocked_type || 'dependency'
       fields.blocked_reason = progress.blocked_reason || progress.message
-      fields.retry_count = (task.retry_count || 0) + 1
       break
     case 'unblocked':
       fields.blocked_type = null
       fields.blocked_reason = null
+      // Unblocking counts as a retry attempt (agent is re-attempting work)
+      fields.retry_count = (task.retry_count || 0) + 1
       if (task.status === 'assigned') fields.status = 'in_progress'
       break
     case 'complete':
-      if ((task.retry_count || 0) >= (task.max_retries || 5)) {
-        return { fields: {}, error: 'Retry cap reached' }
-      }
+      // Successful completion should always be allowed regardless of retry count.
+      // Retry cap only gates new assignment/retry attempts, not successful completion.
       fields.status = 'review'
       fields.blocked_type = null
       fields.blocked_reason = null

@@ -7,6 +7,11 @@ import { logger } from '@/lib/logger'
  * GET /api/tasks/mine?agent=bnb-hero
  * Returns tasks assigned to this agent, ordered by urgency.
  * This is the agent's work queue — called on each heartbeat.
+ *
+ * TODO(security): requireRole validates the caller is authenticated, but does
+ * not verify that the caller *is* the agent named in ?agent=. Any authenticated
+ * user with 'viewer' role can query any agent's queue. Once per-agent identity
+ * tokens are in place, add a check that auth.user.agent_id === agent param.
  */
 export async function GET(request: NextRequest) {
   const auth = requireRole(request, 'viewer')
