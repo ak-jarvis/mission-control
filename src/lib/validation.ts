@@ -214,3 +214,16 @@ export const createDecisionSchema = z.object({
 })
 
 export const updateDecisionSchema = createDecisionSchema.partial()
+
+export const createMemorySchema = z.object({
+  type: z.enum(['daily', 'long_term', 'decision', 'lesson', 'contact', 'reflection']),
+  title: z.string().min(1).max(500),
+  content: z.string().min(1).max(50000),
+  summary: z.string().max(2000).optional(),
+  agent: z.string().max(100).optional(),
+  tags: z.array(z.string()).default([]),
+  source_file: z.string().max(500).optional(),
+  date_ref: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+})
+
+export const updateMemorySchema = createMemorySchema.partial()
