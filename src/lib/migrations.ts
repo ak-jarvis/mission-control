@@ -871,6 +871,27 @@ const migrations: Migration[] = [
       `)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_sla_events_task_id ON sla_events(task_id)`)
       db.exec(`CREATE INDEX IF NOT EXISTS idx_sla_events_type ON sla_events(event_type)`)
+    },
+  {
+    id: '029_channel_bindings',
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS channel_bindings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          workspace_id INTEGER NOT NULL DEFAULT 1,
+          agent_name TEXT NOT NULL,
+          platform TEXT NOT NULL,
+          channel_kind TEXT NOT NULL,
+          channel_id TEXT NOT NULL,
+          channel_name TEXT,
+          account_id TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          synced_at INTEGER NOT NULL DEFAULT (unixepoch()),
+          UNIQUE(workspace_id, agent_name, platform, channel_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_channel_bindings_agent ON channel_bindings(agent_name);
+        CREATE INDEX IF NOT EXISTS idx_channel_bindings_platform ON channel_bindings(platform);
+      `)
     }
   },
   {
