@@ -22,9 +22,9 @@ export function AvatarExporter({ onClose }: { onClose?: () => void }) {
   }
 
   function handleDownloadAll() {
-    for (const agent of agents) {
-      handleDownload(agent.id)
-    }
+    agents.forEach((agent, i) => {
+      setTimeout(() => handleDownload(agent.id), i * 200)
+    })
   }
 
   return (

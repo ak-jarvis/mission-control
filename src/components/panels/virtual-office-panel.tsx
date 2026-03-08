@@ -31,19 +31,11 @@ const ROOMS: Room[] = [
   { id: 'canteen', label: 'Canteen / Aegis Tower', agentId: 'aegis', col: '2 / 4', row: '3 / 4', bg: '#1e1a2a' },
 ]
 
-// Map agent IDs to their "home" room
-const AGENT_HOME_ROOM: Record<string, string> = {
-  'jarvis-dev': 'dev-bay',
-  'jarvis-life': 'life-studio',
-  'friday': 'finance',
-  'bnb-hero': 'str-suite',
-  'sukuqi': 'fintech-lab',
-  'hostai-scout': 'scout-post',
-  'aegis': 'canteen',
-}
-
-// All known agent IDs for fallback
-const ALL_AGENT_IDS = ['jarvis-dev', 'jarvis-life', 'friday', 'bnb-hero', 'sukuqi', 'hostai-scout', 'aegis']
+// Derived from ROOMS to avoid duplication
+const AGENT_HOME_ROOM: Record<string, string> = Object.fromEntries(
+  ROOMS.filter(r => r.agentId).map(r => [r.agentId, r.id])
+)
+const ALL_AGENT_IDS = ROOMS.map(r => r.agentId).filter(Boolean) as string[]
 
 export function VirtualOfficePanel() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -71,22 +63,43 @@ export function VirtualOfficePanel() {
       })
   }, [])
 
-  // SSE live updates
+  // SSE live updates with reconnection
   useEffect(() => {
+    let mounted = true
     let es: EventSource | null = null
-    try {
-      es = new EventSource('/api/events')
-      es.addEventListener('agent.status_changed', (e) => {
-        const data = JSON.parse(e.data)
-        setAgents(prev => prev.map(a => a.name === data.name ? { ...a, status: data.status } : a))
-      })
-      es.onerror = () => {
-        es?.close()
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null
+    let retryDelay = 1000
+
+    function connect() {
+      if (!mounted) return
+      try {
+        es = new EventSource('/api/events')
+        es.addEventListener('agent.status_changed', (e) => {
+          if (!mounted) return
+          try {
+            const data = JSON.parse(e.data)
+            setAgents(prev => prev.map(a => a.name === data.name ? { ...a, status: data.status } : a))
+          } catch { /* ignore malformed events */ }
+        })
+        es.onopen = () => { retryDelay = 1000 }
+        es.onerror = () => {
+          es?.close()
+          if (mounted) {
+            retryTimeout = setTimeout(connect, Math.min(retryDelay, 30000))
+            retryDelay *= 2
+          }
+        }
+      } catch {
+        if (mounted) retryTimeout = setTimeout(connect, retryDelay)
       }
-    } catch {
-      // SSE not available
     }
-    return () => { es?.close() }
+
+    connect()
+    return () => {
+      mounted = false
+      es?.close()
+      if (retryTimeout) clearTimeout(retryTimeout)
+    }
   }, [])
 
   // Clock

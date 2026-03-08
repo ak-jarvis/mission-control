@@ -101,12 +101,6 @@ function overlay(base: [number, number, string][], extra: [number, number, strin
   return Array.from(map.values())
 }
 
-// Helper to remove pixels at specific positions
-function removeAt(base: [number, number, string][], positions: [number, number][]): [number, number, string][] {
-  const removeSet = new Set(positions.map(([x, y]) => `${x},${y}`))
-  return base.filter(([x, y]) => !removeSet.has(`${x},${y}`))
-}
-
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Agent-specific avatar customizations
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -273,16 +267,21 @@ export function getAvatarForAgent(agentName: string): PixelAvatarDef | null {
 
 /**
  * Render an avatar frame to an HTMLCanvasElement at the specified target size.
+ * Browser-only — requires DOM canvas API.
  */
 export function renderAvatarToCanvas(
   def: PixelAvatarDef,
   targetSize: number,
   frame: number = 0,
 ): HTMLCanvasElement {
+  if (typeof document === 'undefined') {
+    throw new Error('renderAvatarToCanvas requires a browser environment')
+  }
   const canvas = document.createElement('canvas')
   canvas.width = targetSize
   canvas.height = targetSize
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas 2D context not available')
   const scale = targetSize / def.gridSize
 
   const pixels = def.frames[frame] || def.frames[0]

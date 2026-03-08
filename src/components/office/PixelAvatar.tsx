@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, memo } from 'react'
 import { getAvatarForAgent, buildBoxShadow } from '@/lib/pixel-avatars'
 import './pixel-avatar-styles.css'
 
@@ -11,7 +11,7 @@ interface PixelAvatarProps {
   showLabel?: boolean
 }
 
-export function PixelAvatar({ agentName, status, scale = 3, showLabel }: PixelAvatarProps) {
+export const PixelAvatar = memo(function PixelAvatar({ agentName, status, scale = 3, showLabel }: PixelAvatarProps) {
   const avatar = useMemo(() => getAvatarForAgent(agentName), [agentName])
   const [frame, setFrame] = useState(0)
 
@@ -61,4 +61,4 @@ export function PixelAvatar({ agentName, status, scale = 3, showLabel }: PixelAv
       )}
     </div>
   )
-}
+})

@@ -26,6 +26,8 @@
 .avatar-wrapper {
   position: relative;
   display: inline-block;
+  will-change: transform;
+  contain: layout style;
 }
 
 .avatar-busy {
