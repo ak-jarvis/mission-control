@@ -113,7 +113,7 @@ export async function PATCH(
 
     const parsed = { ...updated, tags: updated.tags ? JSON.parse(updated.tags) : [] }
 
-    eventBus.broadcast('task.updated', parsed)
+    eventBus.broadcast('decision.updated', parsed)
 
     return NextResponse.json({ decision: parsed })
   } catch (error) {
@@ -162,6 +162,8 @@ export async function DELETE(
       {},
       workspaceId
     )
+
+    eventBus.broadcast('decision.archived', { id, workspace_id: workspaceId })
 
     return NextResponse.json({ success: true })
   } catch (error) {

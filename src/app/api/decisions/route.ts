@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     const parsed = { ...created, tags: created.tags ? JSON.parse(created.tags) : [] }
 
-    eventBus.broadcast('task.created', parsed)
+    eventBus.broadcast('decision.created', parsed)
 
     return NextResponse.json({ decision: parsed }, { status: 201 })
   } catch (error) {
