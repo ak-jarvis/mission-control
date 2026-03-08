@@ -4,7 +4,7 @@ import { getCrmStats } from '@/lib/crm'
 
 export async function GET(request: NextRequest) {
   const auth = requireRole(request, 'viewer')
-  if (auth.error) {
+  if ('error' in auth) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
 

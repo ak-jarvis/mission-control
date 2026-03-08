@@ -11,7 +11,6 @@ function getCrmDatabase(): Database.Database | null {
   if (!dbPath || !existsSync(dbPath)) return null
   try {
     crmDb = new Database(dbPath, { readonly: true })
-    crmDb.pragma('journal_mode = WAL')
     return crmDb
   } catch (err) {
     logger.error({ err }, 'Failed to open CRM database')
